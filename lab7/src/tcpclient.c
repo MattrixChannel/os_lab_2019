@@ -6,42 +6,44 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <unistd.h>
-
+/*
 #define BUFSIZE 100
 #define SADDR struct sockaddr
 #define SIZE sizeof(struct sockaddr_in)
-
+*/
 int main(int argc, char *argv[]) {
-  int fd;
-  int nread;
-  char buf[BUFSIZE];
-  struct sockaddr_in servaddr;
-  if (argc < 3) {
-    printf("Too few arguments \n");
+  if (argc != 4) {
+    printf("Необходимые аргументы: <ip> <port> <bufsize>\n");
     exit(1);
   }
+
+  int fd;
+  int nread;
+  int BUFSIZE = atoi(argv[3]); // Вынесли BUFSIZE в аргумент
+  char buf[BUFSIZE];
+  struct sockaddr_in servaddr;
 
   if ((fd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     perror("socket creating");
     exit(1);
   }
 
-  memset(&servaddr, 0, SIZE);
+  memset(&servaddr, 0, sizeof(servaddr));
   servaddr.sin_family = AF_INET;
 
-  if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) {
+  if (inet_pton(AF_INET, argv[1], &servaddr.sin_addr) <= 0) { // Вынесли IP
     perror("bad address");
     exit(1);
   }
 
-  servaddr.sin_port = htons(atoi(argv[2]));
+  servaddr.sin_port = htons(atoi(argv[2])); // Вынесли порт
 
-  if (connect(fd, (SADDR *)&servaddr, SIZE) < 0) {
+  if (connect(fd, (struct sockaddr *)&servaddr, sizeof(servaddr)) < 0) {
     perror("connect");
     exit(1);
   }
 
-  write(1, "Input message to send\n", 22);
+  write(1, "Введите сообщение для отправки\n", 59);
   while ((nread = read(0, buf, BUFSIZE)) > 0) {
     if (write(fd, buf, nread) < 0) {
       perror("write");

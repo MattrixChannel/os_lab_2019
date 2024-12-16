@@ -34,7 +34,7 @@ bool ConvertStringToUI64(const char *str, uint64_t *val) {
   char *end = NULL;
   unsigned long long i = strtoull(str, &end, 10);
   if (errno == ERANGE) {
-    fprintf(stderr, "Out of uint64_t range: %s\n", str);
+    fprintf(stderr, "Переполнение uint64_t: %s\n", str);
     return false;
   }
 
@@ -49,7 +49,7 @@ bool ConvertStringToUI64(const char *str, uint64_t *val) {
 int SetupSocketConnection(char ip[255], int port) {
     struct hostent *hostname = gethostbyname(ip);
     if (hostname == NULL) {
-        fprintf(stderr, "gethostbyname failed with %s\n", ip);
+        fprintf(stderr, "gethostbyname ошибка %s\n", ip);
         exit(1);
     }
 
@@ -59,26 +59,26 @@ int SetupSocketConnection(char ip[255], int port) {
 
     // Используем первый IP-адрес из списка
     if (hostname->h_addr_list[0] == NULL) {
-        fprintf(stderr, "No IP addresses found for %s\n", ip);
+        fprintf(stderr, "Нет IP адресов %s\n", ip);
         exit(1);
     }
     server.sin_addr.s_addr = *((unsigned long *)hostname->h_addr_list[0]);
 
     int sck = socket(AF_INET, SOCK_STREAM, 0);
     if (sck < 0) {
-        fprintf(stderr, "Socket creation failed!\n");
+        fprintf(stderr, "Не удалось создать сокет!\n");
         exit(1);
     }
 
     if (connect(sck, (struct sockaddr *)&server, sizeof(server)) < 0) {
-        fprintf(stderr, "Connection failed\n");
+        fprintf(stderr, "Не удалось подключиться к сокету\n");
         exit(1);
     }
     return sck;
 }
 
 // Генерирует задание для отправки на сервер
-char* SetupTask(struct ThreadArgs args) {
+char* sendMsg(struct ThreadArgs args) {
     char* task = malloc(sizeof(uint64_t) * 3); // Выделяем память для 3 значений uint64_t
     memcpy(task, &args.begin, sizeof(uint64_t)); // Копируем begin
     memcpy(task + sizeof(uint64_t), &args.end, sizeof(uint64_t)); // Копируем end
@@ -91,23 +91,23 @@ void* ThreadSend(void* args) {
     struct ThreadArgs *thread_args = (struct ThreadArgs *)args;
 
     int sck = SetupSocketConnection(thread_args->server_args.ip, thread_args->server_args.port);
-    char* task = SetupTask(*thread_args);
-    printf("Sending task: begin = %lu, end = %lu, mod = %lu\n", thread_args->begin, thread_args->end, thread_args->mod); // Отладочное сообщение
-    if (send(sck, task, 24, 0) < 0) { // Отправляем 24 байта данных (для begin, end, m)
-      fprintf(stderr, "Send failed\n");
+    char* task = sendMsg(*thread_args);
+    printf("Отправлен расчет: начало %lu, конец %lu, mod = %lu\n", thread_args->begin, thread_args->end, thread_args->mod);
+    if (send(sck, task, 24, 0) < 0) {
+      fprintf(stderr, "Не удалось отправить\n");
       exit(1);
     }
     free(task);
 
     char response[sizeof(uint64_t)];
     if (recv(sck, response, sizeof(response), 0) < 0) {
-      fprintf(stderr, "Receive failed\n");
+      fprintf(stderr, "Не удалось получить\n");
       exit(1);
     }
 
     uint64_t answer;
     memcpy(&answer, response, sizeof(uint64_t));
-    printf("Received answer: %lu\n", answer); // Отладочное сообщение
+    printf("Ответ: %lu\n", answer);
     close(sck);
     return (void*)answer;
 }
@@ -116,7 +116,7 @@ void* ThreadSend(void* args) {
 struct Server* ParseServersFromFile(char* filename, unsigned int *servers_counter) {
     FILE* fp = fopen(filename, "r");
     if (fp == NULL) {
-        fprintf(stderr, "|ERROR| Can't read file: %s\n", filename);
+        fprintf(stderr, "|ERROR| Не удалось прочитать: %s\n", filename);
         exit(1);
     }
     int count_str = 0;
@@ -133,7 +133,7 @@ struct Server* ParseServersFromFile(char* filename, unsigned int *servers_counte
 
         for (int j = 0; j < sizeof(txt); ++j) {
             if (txt[j] == '\0') {
-                fprintf(stderr, "|ParseError| Invalid address: %s\n", txt);
+                fprintf(stderr, "|ParseError| Неверный адрес: %s\n", txt);
                 fclose(fp);
                 exit(1);
             }
@@ -178,24 +178,24 @@ int main(int argc, char **argv) {
                     case 0:
                     ConvertStringToUI64(optarg, &k);
                     if (k < 1) {
-                        fprintf(stderr, "|ERROR| K must be positive number: %lu\n", k);
+                        fprintf(stderr, "|ERROR| K должен быть положительным: %lu\n", k);
                         return 1;
                     } break;
                 case 1:
                     ConvertStringToUI64(optarg, &mod);
                     if (mod < 2) { // Проверка на модуль больше 1
-                        fprintf(stderr, "|ERROR| Mod must be greater than 1: %lu\n", mod);
+                        fprintf(stderr, "|ERROR| Mod должен быть больше 1: %lu\n", mod);
                         return 1;
                     }   break;
                 case 2:
                     memcpy(servers, optarg, strlen(optarg));
                     to = ParseServersFromFile(servers, &servers_num);
                     if (servers_num == 0) {
-                        fprintf(stderr, "|ERROR| %s must contain valid addresses: %d\n", servers, servers_num);
+                        fprintf(stderr, "|ERROR| %s должен содержать действительные адреса: %d\n", servers, servers_num);
                         return 1;
                     } break;
                 default:
-                    fprintf(stderr, "|ERROR| Index %d is out of options\n", option_index);
+                    fprintf(stderr, "|ERROR| Индекс %d\n", option_index);
                 }
             } break;
 
@@ -209,7 +209,7 @@ int main(int argc, char **argv) {
     }
 
     if (k == -1 || mod == -1 || !strlen(servers)) {
-        fprintf(stderr, "Using: %s --k 1000 --mod 5 --servers /path/to/file\n", argv[0]);
+        fprintf(stderr, "Использование: %s --k 1000 --mod 5 --servers /path/to/file\n", argv[0]);
         return 1;
     }
 
@@ -231,7 +231,7 @@ int main(int argc, char **argv) {
             printf("%d - %s:%d\n", i, args[i].server_args.ip, args[i].server_args.port);
         }
         if(pthread_create(&threads[i], NULL, ThreadSend, (void*)&args[i])) {
-            printf("Error: pthread_create failed!\n");
+            printf("Ошибка pthread_create\n");
             return 1;
         }
     }
@@ -243,9 +243,9 @@ int main(int argc, char **argv) {
 
     uint64_t result = 1;
     for (int i = 0; i < servers_num; ++i) {
-        printf("Current result: %lu, Received answer from server %d: %lu\n", result, i, answers[i]);
+        printf("Промежуточный результат: %lu, Получено %d: %lu\n", result, i, answers[i]);
         result = MultModulo(result, answers[i], mod); // Используем функцию из библиотеки
     }
-    printf("answer: %lu\n", result);
+    printf("Результат: %lu\n", result);
     return 0;
 }

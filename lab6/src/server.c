@@ -26,16 +26,16 @@ uint64_t Factorial(uint64_t begin, uint64_t end, uint64_t mod) {
     uint64_t ans = 1;
     for (uint64_t i = begin; i <= end; ++i) {
         ans = MultModulo(ans, i, mod);
-        printf("Factorial: i = %lu, ans = %lu\n", i, ans); // Отладочное сообщение
+        //printf("Factorial: i = %lu, ans = %lu\n", i, ans); // Отладочное сообщение
     }
     return ans;
 }
 
 void* ThreadFactorial(void* args) {
     struct FactorialArgs* fargs = (struct FactorialArgs*)args;
-    printf("ThreadFactorial: begin = %lu, end = %lu, mod = %lu\n", fargs->begin, fargs->end, fargs->mod); // Отладочное сообщение
+    //printf("Пото: begin = %lu, end = %lu, mod = %lu\n", fargs->begin, fargs->end, fargs->mod); // Отладочное сообщение
     uint64_t result = Factorial(fargs->begin, fargs->end, fargs->mod);
-    printf("ThreadFactorial result: %lu\n", result); // Отладочное сообщение
+    printf("(С) Промежуточный расчет: %lu\n", result); // Отладочное сообщение
     return (void*)result;
 }
 
@@ -84,7 +84,7 @@ int main(int argc, char **argv) {
                     case 1:
                         tnum = atoi(optarg); // Установка количества потоков
                         if (tnum < 1) {
-                            fprintf(stderr, "tnum must be positive number: %d\n", tnum);
+                            fprintf(stderr, "tnum должен быть положительным: %d\n", tnum);
                             return 1;
                         } break;
 
@@ -104,14 +104,14 @@ int main(int argc, char **argv) {
 
     // Проверка наличия обязательных аргументов
     if (port == -1 || tnum == -1) {
-        fprintf(stderr, "Using: %s --port 20001 --tnum 4\n", argv[0]);
+        fprintf(stderr, "Использование: %s --port 20001 --tnum 4\n", argv[0]);
         return 1;
     }
 
     // Создание и настройка серверного сокета
     int server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0) {
-        fprintf(stderr, "Can not create server socket: %s\n", strerror(errno));
+        fprintf(stderr, "Не удалось создать серверный сокет: %s\n", strerror(errno));
         return 1;
     }
 
@@ -128,17 +128,17 @@ int main(int argc, char **argv) {
     // Привязка сокета к адресу и начало прослушивания соединений
     int err = bind(server_fd, (struct sockaddr *)&server, sizeof(server));
     if (err < 0) {
-        fprintf(stderr, "Can not bind to socket: %s\n", strerror(errno));
+        fprintf(stderr, "Не удалось привязаться к сокету: %s\n", strerror(errno));
         return 1;
     }
 
     err = listen(server_fd, 128);
     if (err < 0) {
-        fprintf(stderr, "Could not listen on socket: %s\n", strerror(errno));
+        fprintf(stderr, "Не удается слушать сокет: %s\n", strerror(errno));
         return 1;
     }
 
-    printf("Server listening at %d\n", port); // Сервер запущен и слушает
+    printf("Сервер слушает %d\n", port); // Сервер запущен и слушает
 
     while (true) {
         struct sockaddr_in client;
@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
 
         // Установление соединения с клиентом
         if (client_fd < 0) {
-            fprintf(stderr, "Could not establish new connection: %s\n", strerror(errno));
+            fprintf(stderr, "Не удалось создать новое соединение: %s\n", strerror(errno));
             continue;
         }
 
@@ -177,7 +177,7 @@ int main(int argc, char **argv) {
             memcpy(&end, from_client + sizeof(uint64_t), sizeof(uint64_t));
             memcpy(&mod, from_client + 2 * sizeof(uint64_t), sizeof(uint64_t));
 
-            fprintf(stdout, "Receive: %lu %lu %lu\n", begin, end, mod); // Получение данных от клиента
+            fprintf(stdout, "(С) Получено: %lu %lu %lu\n", begin, end, mod); // Получение данных от клиента
 
             struct FactorialArgs args[tnum];
             int step = (end - begin) / tnum;
@@ -192,7 +192,7 @@ int main(int argc, char **argv) {
                     args[i].end = args[i].begin + step - 1;
                 }
                 if (pthread_create(&threads[i], NULL, ThreadFactorial, (void *)&args[i])) {
-                    printf("Error: pthread_create failed!\n");
+                    printf("Ошибка в pthread_create\n");
                     return 1;
                 }
             }
@@ -203,13 +203,13 @@ int main(int argc, char **argv) {
             uint64_t results[tnum];
             for (uint32_t i = 0; i < tnum; i++) {
                 if (pthread_join(threads[i], (void **)&results[i]) != 0) {
-                    fprintf(stderr, "Error joining thread %d\n", i);
+                    fprintf(stderr, "Ошибка в pthread_join %d\n", i);
                     return 1;
                 }
                 total = MultModulo(total, results[i], mod);
             }
 
-            printf("Total: %lu\n", total); // Вывод общего результата
+            printf("(С) Итого: %lu\n", total);
 
             char buffer[sizeof(total)];
             memcpy(buffer, &total, sizeof(total));
@@ -217,7 +217,7 @@ int main(int argc, char **argv) {
             // Отправка результата клиенту
             err = send(client_fd, buffer, sizeof(total), 0);
             if (err < 0) {
-                fprintf(stderr, "Can't send data to client: %s\n", strerror(errno));
+                fprintf(stderr, "Не получилось отправить данные клиенту %s\n", strerror(errno));
                 break;
             }
         }
